@@ -1,0 +1,261 @@
+name: Sync Knowledge
+
+on:
+  schedule:
+    - cron: '0 8 * * 1-5' # Weekday mornings at 08:00 UTC
+  workflow_dispatch:
+    inputs:
+      source_id:
+        description: 'Sync a specific source by ID (leave empty for all)'
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync-repo-knowledge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync sources
+        id: sync
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_FILTER: ${{ inputs.source_id || '' }}
+          WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          CONFIG=".github/sync-sources.json"
+          STATE=".github/sync-state.json"
+          HAS_CHANGES="false"
+          PR_TITLE=""
+          PR_BODY=""
+
+          # Read all source entries (or filter to one)
+          if [ -n "$SOURCE_FILTER" ]; then
+            sources=$(jq -c --arg id "$SOURCE_FILTER" '.sources[] | select(.id == $id)' "$CONFIG")
+          else
+            sources=$(jq -c '.sources[]' "$CONFIG")
+          fi
+
+          if [ -z "$sources" ]; then
+            echo "No matching sources found."
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "$sources" | while IFS= read -r source; do
+            id=$(echo "$source" | jq -r '.id')
+            repo=$(echo "$source" | jq -r '.repo')
+            branch=$(echo "$source" | jq -r '.branch')
+            source_path=$(echo "$source" | jq -r '.sourcePath')
+            target_path=$(echo "$source" | jq -r '.targetPath')
+            generate_enabled=$(echo "$source" | jq -r '.generate.enabled // false')
+
+            echo "::group::Processing source: $id"
+            echo "  repo=$repo branch=$branch"
+            echo "  source=$source_path -> target=$target_path"
+
+            # --- Get latest commit SHA ---
+            latest_sha=$(gh api "repos/$repo/commits/$branch" --jq '.sha')
+            echo "  Latest commit: $latest_sha"
+
+            # --- Read last synced SHA ---
+            last_sha=$(jq -r --arg id "$id" '.sources[$id].lastSyncedCommit // ""' "$STATE")
+            echo "  Last synced:   ${last_sha:-<never>}"
+
+            # --- Skip if unchanged ---
+            if [ "$latest_sha" = "$last_sha" ]; then
+              echo "  No new commits. Skipping."
+              echo "::endgroup::"
+              continue
+            fi
+
+            # --- Sparse checkout source repo ---
+            src_dir=$(mktemp -d)
+            echo "  Cloning $repo (sparse: $source_path)..."
+            git clone --filter=blob:none --sparse --branch "$branch" --depth 1 \
+              "https://github.com/$repo.git" "$src_dir" 2>/dev/null
+            (cd "$src_dir" && git sparse-checkout set "$source_path")
+
+            # --- Build rsync exclude args ---
+            exclude_args=""
+            for pattern in $(echo "$source" | jq -r '.exclude[]? // empty'); do
+              exclude_args="$exclude_args --exclude=$pattern"
+            done
+
+            # --- Sync files ---
+            mkdir -p "$target_path"
+            rsync -av --delete $exclude_args "$src_dir/$source_path/" "$target_path/"
+            rm -rf "$src_dir"
+
+            # --- Get commit log ---
+            commit_log=""
+            if [ -n "$last_sha" ]; then
+              echo "  Fetching commit log ${last_sha:0:7}..${latest_sha:0:7}..."
+              commit_log=$(gh api "repos/$repo/compare/${last_sha}...${latest_sha}" \
+                --jq '[.commits[] | "- [`\(.sha[0:7])`](\(.html_url)) \(.commit.message | split("\n") | .[0])"] | join("\n")' \
+                2>/dev/null || echo "  (Could not fetch commit log)")
+
+              # Filter to commits that touch sourcePath
+              changed_files=$(gh api "repos/$repo/compare/${last_sha}...${latest_sha}" \
+                --jq --arg sp "$source_path" '[.files[] | select(.filename | startswith($sp)) | .filename] | length' \
+                2>/dev/null || echo "?")
+            else
+              commit_log="Initial sync from $repo ($branch)"
+              changed_files="all"
+            fi
+
+            # --- Update sync state ---
+            now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            jq --arg id "$id" --arg sha "$latest_sha" --arg ts "$now" \
+              '.sources[$id] = {"lastSyncedCommit": $sha, "lastSyncedAt": $ts}' \
+              "$STATE" > "${STATE}.tmp" && mv "${STATE}.tmp" "$STATE"
+
+            echo "  Synced. Updated state to $latest_sha"
+
+            # --- Build PR metadata ---
+            # Count commits
+            if [ -n "$last_sha" ]; then
+              commit_count=$(gh api "repos/$repo/compare/${last_sha}...${latest_sha}" \
+                --jq '.commits | length' 2>/dev/null || echo "?")
+            else
+              commit_count="initial"
+            fi
+
+            # Save per-source PR info to temp files (for aggregation after loop)
+            echo "$id" >> /tmp/sync_changed_ids
+            {
+              echo "## Source: \`$id\`"
+              echo ""
+              echo "**Repository:** [$repo](https://github.com/$repo) (branch: \`$branch\`)"
+              echo "**Path:** \`$source_path\` → \`$target_path\`"
+              echo "**Commits:** $commit_count new (${last_sha:0:7}..${latest_sha:0:7})"
+              echo "**Files in source path changed:** $changed_files"
+              echo ""
+              echo "### Commit Log"
+              echo ""
+              echo "$commit_log"
+              echo ""
+              echo "---"
+            } >> "/tmp/sync_pr_body_$id"
+
+            echo "::endgroup::"
+          done
+
+          # --- Aggregate results ---
+          if [ -f /tmp/sync_changed_ids ]; then
+            changed_ids=$(cat /tmp/sync_changed_ids | tr '\n' ', ' | sed 's/,$//')
+            count=$(wc -l < /tmp/sync_changed_ids | tr -d ' ')
+
+            # Combine PR bodies
+            full_body="# Knowledge Sync Report"$'\n\n'
+            full_body+="**Synced sources:** $changed_ids"$'\n'
+            full_body+="**Workflow run:** [View run]($WORKFLOW_RUN_URL)"$'\n\n'
+
+            for id_file in /tmp/sync_pr_body_*; do
+              full_body+=$(cat "$id_file")
+              full_body+=$'\n'
+            done
+
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "pr_title=[Knowledge Sync] $changed_ids: $count source(s) updated" >> "$GITHUB_OUTPUT"
+
+            # Write PR body to file (too long for env var)
+            echo "$full_body" > /tmp/pr_body.md
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # --- Generate experts for sources that need it ---
+      - name: Setup Node.js
+        if: steps.sync.outputs.has_changes == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Generate experts (if configured)
+        if: steps.sync.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.PAT }}
+          SOURCE_FILTER: ${{ inputs.source_id || '' }}
+        run: |
+          set -euo pipefail
+
+          CONFIG=".github/sync-sources.json"
+
+          # Find sources with generate.enabled = true
+          if [ -n "$SOURCE_FILTER" ]; then
+            gen_sources=$(jq -c --arg id "$SOURCE_FILTER" \
+              '.sources[] | select(.id == $id and .generate.enabled == true)' "$CONFIG")
+          else
+            gen_sources=$(jq -c '.sources[] | select(.generate.enabled == true)' "$CONFIG")
+          fi
+
+          if [ -z "$gen_sources" ]; then
+            echo "No sources require expert generation."
+            exit 0
+          fi
+
+          # Install Copilot CLI
+          echo "Installing GitHub Copilot CLI..."
+          npm install -g @github/copilot
+
+          echo "$gen_sources" | while IFS= read -r source; do
+            id=$(echo "$source" | jq -r '.id')
+            target_path=$(echo "$source" | jq -r '.targetPath')
+            template_path=$(echo "$source" | jq -r '.generate.templatePath')
+            prompt_path=$(echo "$source" | jq -r '.generate.promptPath')
+            output_path=$(echo "$source" | jq -r '.generate.outputPath')
+            skill_name=$(echo "$source" | jq -r '.generate.skillName // .id')
+
+            echo "::group::Generating experts for: $id"
+
+            # Read prompt template and perform variable substitution
+            prompt_template=$(cat "$prompt_path")
+
+            # List synced source files for context
+            source_files=$(find "$target_path" -type f -name '*.md' | head -200 | sort)
+
+            # Substitute template variables
+            prompt="${prompt_template//\{\{SOURCE_PATH\}\}/$target_path}"
+            prompt="${prompt//\{\{OUTPUT_PATH\}\}/$output_path}"
+            prompt="${prompt//\{\{TEMPLATE_PATH\}\}/$template_path}"
+            prompt="${prompt//\{\{SKILL_NAME\}\}/$skill_name}"
+
+            # Append file listing
+            prompt="$prompt"$'\n\n'"## Source files found:"$'\n'"$source_files"
+
+            echo "  Running Copilot CLI to generate experts..."
+            mkdir -p "$output_path"
+
+            # Run Copilot CLI — graceful degradation on failure
+            copilot --no-custom-instructions --no-ask-user --allow-all \
+              --prompt "$prompt" 2>&1 || {
+              echo "::warning::Copilot CLI failed for $id. PR will include synced content only."
+            }
+
+            echo "::endgroup::"
+          done
+
+      # --- Create Pull Request ---
+      - name: Create Pull Request
+        if: steps.sync.outputs.has_changes == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'sync: update knowledge from upstream sources'
+          branch: sync/knowledge
+          delete-branch: true
+          title: ${{ steps.sync.outputs.pr_title }}
+          body-path: /tmp/pr_body.md
+          labels: knowledge-sync

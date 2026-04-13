@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "id": "slack-plus-teams-experts",
+      "repo": "microsoft/slack-plus-teams",
+      "branch": "main",
+      "sourcePath": "experts",
+      "targetPath": "skills/microsoft-365-agents-toolkit/experts",
+      "exclude": [".claude"]
+    },
+    {
+      "id": "slack-plus-teams-docs",
+      "repo": "microsoft/slack-plus-teams",
+      "branch": "main",
+      "sourcePath": "docs",
+      "targetPath": "skills/microsoft-365-agents-toolkit/docs",
+      "exclude": []
+    }
+  ]
+}
