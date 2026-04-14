@@ -302,6 +302,14 @@ jobs:
 
               echo "::group::Assessing derived file: $df_path"
 
+              # Skip derived files that were themselves synced (already up-to-date from upstream)
+              if git diff --name-only HEAD -- "$df_path" 2>/dev/null | grep -q .; then
+                echo "  File was already updated by sync step. Skipping assessment."
+                echo "| \`$df_path\` | ⏭️ Skipped | Already updated by sync |" >> /tmp/derived_report.md
+                echo "::endgroup::"
+                continue
+              fi
+
               if [ ! -f "$df_path" ]; then
                 echo "  Derived file does not exist. Skipping."
                 echo "| \`$df_path\` | ⏭️ Skipped | File does not exist |" >> /tmp/derived_report.md
@@ -326,19 +334,17 @@ jobs:
                 fi
               done
 
-              # Get changed files from git diff (staged + unstaged)
-              changed_files_list=$(git diff --name-only HEAD -- 2>/dev/null || echo "(initial sync)")
-
-              # Read current derived file
-              current_content=$(cat "$df_path")
+              # Get added and modified files from git diff
+              added_files=$(git diff --diff-filter=A --name-only HEAD -- 2>/dev/null || echo "")
+              modified_files=$(git diff --diff-filter=M --name-only HEAD -- 2>/dev/null || echo "")
 
               # Build prompt from template
               prompt=$(cat "$PROMPT_TEMPLATE")
               prompt="${prompt//\{\{DERIVED_PATH\}\}/$df_path}"
               prompt="${prompt//\{\{DESCRIPTION\}\}/$df_desc}"
-              prompt="${prompt//\{\{CURRENT_CONTENT\}\}/$current_content}"
               prompt="${prompt//\{\{DIR_LISTING\}\}/$dir_listing}"
-              prompt="${prompt//\{\{CHANGED_FILES\}\}/$changed_files_list}"
+              prompt="${prompt//\{\{ADDED_FILES\}\}/$added_files}"
+              prompt="${prompt//\{\{MODIFIED_FILES\}\}/$modified_files}"
 
               # Back up current file
               cp "$df_path" "${df_path}.bak"
