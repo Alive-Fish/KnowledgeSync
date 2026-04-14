@@ -349,6 +349,7 @@ jobs:
               copilot_output=$(copilot -p "$prompt" --allow-all-tools 2>&1) || {
                 echo "::warning::Copilot CLI failed for $df_path. Keeping existing file."
                 echo "| \`$df_path\` | ⚠️ Error | Copilot CLI failed |" >> /tmp/derived_report.md
+                rm -f "${df_path}.bak"
                 echo "::endgroup::"
                 continue
               }
@@ -405,6 +406,9 @@ jobs:
             echo "" >> /tmp/pr_body.md
             cat /tmp/derived_report.md >> /tmp/pr_body.md
           fi
+
+          # Safety cleanup: remove any stray .bak files
+          find . -name '*.bak' -delete 2>/dev/null || true
 
       # --- Create Pull Request ---
       - name: Create Pull Request
