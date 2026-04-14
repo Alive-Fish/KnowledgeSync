@@ -239,13 +239,170 @@ jobs:
             mkdir -p "$output_path"
 
             # Run Copilot CLI — graceful degradation on failure
-            copilot --no-custom-instructions --no-ask-user --allow-all \
-              --prompt "$prompt" 2>&1 || {
+            copilot -p "$prompt" --allow-all-tools 2>&1 || {
               echo "::warning::Copilot CLI failed for $id. PR will include synced content only."
             }
 
             echo "::endgroup::"
           done
+
+      # --- Assess and update derived files ---
+      - name: Assess derived files
+        id: derived
+        if: steps.sync.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.PAT }}
+          SOURCE_FILTER: ${{ inputs.source_id || '' }}
+        run: |
+          set -euo pipefail
+
+          CONFIG=".github/sync-sources.json"
+          PROMPT_TEMPLATE=".github/templates/assess-derived-file-prompt.md"
+          VALIDATE_SCRIPT=".github/scripts/validate-derived.sh"
+          chmod +x "$VALIDATE_SCRIPT"
+
+          # Collect sources that had changes (written by sync step)
+          if [ ! -f /tmp/sync_changed_ids ]; then
+            echo "No changed sources. Skipping derived file assessment."
+            exit 0
+          fi
+
+          # Check if Copilot CLI is available (requires PAT)
+          HAS_COPILOT="false"
+          if [ -n "${COPILOT_GITHUB_TOKEN:-}" ]; then
+            if command -v copilot &>/dev/null; then
+              HAS_COPILOT="true"
+            else
+              echo "Installing GitHub Copilot CLI..."
+              npm install -g @github/copilot 2>/dev/null && HAS_COPILOT="true" || true
+            fi
+          fi
+
+          # Initialize derived files report
+          echo "## Derived Files" > /tmp/derived_report.md
+          echo "" >> /tmp/derived_report.md
+          echo "| File | Status | Details |" >> /tmp/derived_report.md
+          echo "|------|--------|---------|" >> /tmp/derived_report.md
+
+          derived_updated="false"
+
+          while IFS= read -r changed_id; do
+            # Get derivedFiles for this source
+            derived_files=$(jq -c --arg id "$changed_id" \
+              '.sources[] | select(.id == $id) | .derivedFiles[]?' "$CONFIG")
+
+            [ -z "$derived_files" ] && continue
+
+            echo "$derived_files" | while IFS= read -r df; do
+              df_path=$(echo "$df" | jq -r '.path')
+              df_desc=$(echo "$df" | jq -r '.description')
+              context_paths=$(echo "$df" | jq -r '.contextPaths[]')
+
+              echo "::group::Assessing derived file: $df_path"
+
+              if [ ! -f "$df_path" ]; then
+                echo "  Derived file does not exist. Skipping."
+                echo "| \`$df_path\` | ⏭️ Skipped | File does not exist |" >> /tmp/derived_report.md
+                echo "::endgroup::"
+                continue
+              fi
+
+              if [ "$HAS_COPILOT" != "true" ]; then
+                echo "  Copilot CLI not available. Skipping assessment."
+                echo "| \`$df_path\` | ⏭️ Skipped | Copilot CLI not available (set PAT secret) |" >> /tmp/derived_report.md
+                echo "::endgroup::"
+                continue
+              fi
+
+              # Build directory listing from contextPaths
+              dir_listing=""
+              for ctx in $context_paths; do
+                if [ -d "$ctx" ]; then
+                  dir_listing+="$ctx/"$'\n'
+                  dir_listing+=$(find "$ctx" -type f -name '*.md' | sort | sed "s|^|  |")
+                  dir_listing+=$'\n'
+                fi
+              done
+
+              # Get changed files from git diff (staged + unstaged)
+              changed_files_list=$(git diff --name-only HEAD -- 2>/dev/null || echo "(initial sync)")
+
+              # Read current derived file
+              current_content=$(cat "$df_path")
+
+              # Build prompt from template
+              prompt=$(cat "$PROMPT_TEMPLATE")
+              prompt="${prompt//\{\{DERIVED_PATH\}\}/$df_path}"
+              prompt="${prompt//\{\{DESCRIPTION\}\}/$df_desc}"
+              prompt="${prompt//\{\{CURRENT_CONTENT\}\}/$current_content}"
+              prompt="${prompt//\{\{DIR_LISTING\}\}/$dir_listing}"
+              prompt="${prompt//\{\{CHANGED_FILES\}\}/$changed_files_list}"
+
+              # Back up current file
+              cp "$df_path" "${df_path}.bak"
+
+              # Run Copilot CLI for assessment
+              echo "  Running Copilot CLI assessment..."
+              copilot_output=$(copilot -p "$prompt" --allow-all-tools 2>&1) || {
+                echo "::warning::Copilot CLI failed for $df_path. Keeping existing file."
+                echo "| \`$df_path\` | ⚠️ Error | Copilot CLI failed |" >> /tmp/derived_report.md
+                echo "::endgroup::"
+                continue
+              }
+
+              # Parse verdict
+              if echo "$copilot_output" | grep -q "VERDICT: COMPATIBLE"; then
+                echo "  Derived file is compatible. No changes needed."
+                echo "| \`$df_path\` | ✅ Compatible | No changes needed |" >> /tmp/derived_report.md
+                rm -f "${df_path}.bak"
+                echo "::endgroup::"
+                continue
+              fi
+
+              # Extract regenerated content
+              if echo "$copilot_output" | grep -q "REGENERATED_FILE_START"; then
+                regen_content=$(echo "$copilot_output" | sed -n '/REGENERATED_FILE_START/,/REGENERATED_FILE_END/p' | sed '1d;$d')
+
+                if [ -z "$regen_content" ]; then
+                  echo "::warning::Empty regeneration output for $df_path. Keeping existing file."
+                  echo "| \`$df_path\` | ⚠️ Error | Empty regeneration output |" >> /tmp/derived_report.md
+                  mv "${df_path}.bak" "$df_path"
+                  echo "::endgroup::"
+                  continue
+                fi
+
+                # Write regenerated content
+                echo "$regen_content" > "$df_path"
+
+                # Validate
+                if bash "$VALIDATE_SCRIPT" "$df_path"; then
+                  echo "  Regenerated and validated successfully."
+                  # Get a short summary of changes
+                  diff_stat=$(diff --brief "${df_path}.bak" "$df_path" 2>/dev/null && echo "identical" || echo "updated")
+                  echo "| \`$df_path\` | ✅ Updated | Regenerated and validated |" >> /tmp/derived_report.md
+                  rm -f "${df_path}.bak"
+                  echo "true" > /tmp/derived_updated
+                else
+                  echo "::warning::Validation failed for regenerated $df_path. Reverting to previous version."
+                  mv "${df_path}.bak" "$df_path"
+                  echo "| \`$df_path\` | ⚠️ Kept old | Validation failed on regenerated version |" >> /tmp/derived_report.md
+                fi
+              else
+                echo "  Verdict was INCOMPATIBLE but no regenerated content found."
+                echo "| \`$df_path\` | ⚠️ Kept old | Incompatible but regeneration not produced |" >> /tmp/derived_report.md
+                mv "${df_path}.bak" "$df_path"
+              fi
+
+              echo "::endgroup::"
+            done
+          done < /tmp/sync_changed_ids
+
+          # Append derived report to PR body
+          if [ -f /tmp/pr_body.md ] && [ -f /tmp/derived_report.md ]; then
+            echo "" >> /tmp/pr_body.md
+            cat /tmp/derived_report.md >> /tmp/pr_body.md
+          fi
 
       # --- Create Pull Request ---
       - name: Create Pull Request

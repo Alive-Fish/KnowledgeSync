@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "sources": [
     {
       "id": "slack-plus-teams-experts",
@@ -7,7 +7,19 @@
       "branch": "main",
       "sourcePath": "experts",
       "targetPath": "skills/microsoft-365-agents-toolkit/experts",
-      "exclude": [".claude"]
+      "exclude": [".claude"],
+      "derivedFiles": [
+        {
+          "path": "skills/microsoft-365-agents-toolkit/slack-to-teams/SKILL.md",
+          "contextPaths": ["skills/microsoft-365-agents-toolkit/experts", "skills/microsoft-365-agents-toolkit/docs"],
+          "description": "Routed expert system SKILL.md for Slack-to-Teams migration. References expert domains, file paths, routing rules, and platform comparison docs."
+        },
+        {
+          "path": "skills/microsoft-365-agents-toolkit/experts/index.md",
+          "contextPaths": ["skills/microsoft-365-agents-toolkit/experts"],
+          "description": "Root task router. Lists all expert domains, signal words for routing, and the pre-task interview protocol."
+        }
+      ]
     },
     {
       "id": "slack-plus-teams-docs",
@@ -15,7 +27,14 @@
       "branch": "main",
       "sourcePath": "docs",
       "targetPath": "skills/microsoft-365-agents-toolkit/docs",
-      "exclude": []
+      "exclude": [],
+      "derivedFiles": [
+        {
+          "path": "skills/microsoft-365-agents-toolkit/docs/README.md",
+          "contextPaths": ["skills/microsoft-365-agents-toolkit/docs"],
+          "description": "Index page for platform comparison docs. Lists all doc files with descriptions."
+        }
+      ]
     }
   ]
 }
