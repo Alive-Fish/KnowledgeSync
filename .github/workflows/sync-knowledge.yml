@@ -187,8 +187,7 @@ jobs:
       - name: Generate experts (if configured)
         if: steps.sync.outputs.has_changes == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COPILOT_GITHUB_TOKEN: ${{ secrets.PAT }}
+          GH_TOKEN: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
           SOURCE_FILTER: ${{ inputs.source_id || '' }}
         run: |
           set -euo pipefail
@@ -253,8 +252,8 @@ jobs:
         id: derived
         if: steps.sync.outputs.has_changes == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COPILOT_GITHUB_TOKEN: ${{ secrets.PAT }}
+          GH_TOKEN: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
+          HAS_PAT: ${{ secrets.PAT && 'true' || 'false' }}
           SOURCE_FILTER: ${{ inputs.source_id || '' }}
         run: |
           set -euo pipefail
@@ -272,7 +271,7 @@ jobs:
 
           # Check if Copilot CLI is available (requires PAT)
           HAS_COPILOT="false"
-          if [ -n "${COPILOT_GITHUB_TOKEN:-}" ]; then
+          if [ "$HAS_PAT" = "true" ]; then
             if command -v copilot &>/dev/null; then
               HAS_COPILOT="true"
             else
