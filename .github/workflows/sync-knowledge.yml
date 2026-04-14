@@ -370,37 +370,22 @@ jobs:
                 continue
               fi
 
-              # Extract regenerated content
-              if echo "$copilot_output" | grep -q "REGENERATED_FILE_START"; then
-                regen_content=$(echo "$copilot_output" | sed -n '/REGENERATED_FILE_START/,/REGENERATED_FILE_END/p' | sed '1d;$d')
-
-                if [ -z "$regen_content" ]; then
-                  echo "::warning::Empty regeneration output for $df_path. Keeping existing file."
-                  echo "| \`$df_path\` | ⚠️ Error | Empty regeneration output |" >> /tmp/derived_report.md
-                  mv "${df_path}.bak" "$df_path"
-                  echo "::endgroup::"
-                  continue
-                fi
-
-                # Write regenerated content
-                echo "$regen_content" > "$df_path"
-
-                # Validate
+              # Copilot CLI uses edit_file tool to make targeted edits in-place
+              if echo "$copilot_output" | grep -q "EDITS_APPLIED"; then
+                # Validate the edited file
                 if bash "$VALIDATE_SCRIPT" "$df_path"; then
-                  echo "  Regenerated and validated successfully."
-                  # Get a short summary of changes
-                  diff_stat=$(diff --brief "${df_path}.bak" "$df_path" 2>/dev/null && echo "identical" || echo "updated")
-                  echo "| \`$df_path\` | ✅ Updated | Regenerated and validated |" >> /tmp/derived_report.md
+                  echo "  Edits applied and validated successfully."
+                  echo "| \`$df_path\` | ✅ Updated | Targeted edits applied and validated |" >> /tmp/derived_report.md
                   rm -f "${df_path}.bak"
                   echo "true" > /tmp/derived_updated
                 else
-                  echo "::warning::Validation failed for regenerated $df_path. Reverting to previous version."
+                  echo "::warning::Validation failed for edited $df_path. Reverting to previous version."
                   mv "${df_path}.bak" "$df_path"
-                  echo "| \`$df_path\` | ⚠️ Kept old | Validation failed on regenerated version |" >> /tmp/derived_report.md
+                  echo "| \`$df_path\` | ⚠️ Kept old | Validation failed on edited version |" >> /tmp/derived_report.md
                 fi
               else
-                echo "  Verdict was INCOMPATIBLE but no regenerated content found."
-                echo "| \`$df_path\` | ⚠️ Kept old | Incompatible but regeneration not produced |" >> /tmp/derived_report.md
+                echo "  Verdict was INCOMPATIBLE but no edits were applied."
+                echo "| \`$df_path\` | ⚠️ Kept old | Incompatible but no edits applied |" >> /tmp/derived_report.md
                 mv "${df_path}.bak" "$df_path"
               fi
 

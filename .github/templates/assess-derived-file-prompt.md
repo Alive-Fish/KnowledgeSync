@@ -67,20 +67,19 @@ Output exactly one of:
 - `VERDICT: COMPATIBLE` — all checks pass, no changes needed
 - `VERDICT: INCOMPATIBLE` — followed by a bullet list of specific failing checks
 
-### Phase 2: Regenerate (only if INCOMPATIBLE)
+### Phase 2: Apply fixes (only if INCOMPATIBLE)
 
-If incompatible, regenerate the file. Rules:
+Use the `edit_file` tool to make targeted edits to `{{DERIVED_PATH}}`. Do NOT rewrite the entire file.
 
+Rules:
 1. **Read before writing** — for each newly added file that needs a description, READ its content (at least the title and first 30 lines) to write an accurate, style-consistent description. Do NOT guess what a file contains.
-2. **Preserve structure and style** — keep the same markdown structure, frontmatter, heading hierarchy, and writing tone as the original
-3. **Minimal changes only** — fix ONLY the specific issues you identified in Phase 1. Copy all other sections verbatim from the original file. Do not rephrase, reformat, or restructure anything that passed checks.
-4. **Use the SAME relative link style as the original** — if the original uses `../docs/foo.md`, new entries must also use `../docs/` prefix. The derived file is at `{{DERIVED_PATH}}` — all links are relative to its parent directory. Do NOT use absolute paths from the directory listing.
-5. **Do not remove sections** unless the content they describe was entirely deleted
-6. **Write the complete file** — output the full regenerated file, not a diff
+2. **Targeted edits only** — use the `edit_file` tool to insert or replace only the specific lines that need changing. Do NOT replace the entire file.
+3. **Use the SAME relative link style as the original** — if existing entries use `../docs/foo.md`, your additions must too. The derived file is at `{{DERIVED_PATH}}` — all links are relative to its parent directory.
+4. **Match formatting exactly** — new entries must use the same bullet style, table format, or list pattern as adjacent existing entries.
+5. **Do not remove or rewrite** anything that passed checks.
 
-Output format:
+After making all edits, output exactly:
 ```
-REGENERATED_FILE_START
-(complete file content here)
-REGENERATED_FILE_END
+VERDICT: INCOMPATIBLE
+EDITS_APPLIED
 ```
