@@ -73,8 +73,8 @@ If incompatible, regenerate the file. Rules:
 
 1. **Read before writing** — for each newly added file that needs a description, READ its content (at least the title and first 30 lines) to write an accurate, style-consistent description. Do NOT guess what a file contains.
 2. **Preserve structure and style** — keep the same markdown structure, frontmatter, heading hierarchy, and writing tone as the original
-3. **Update only incompatible parts** — fix broken links, add missing entries, update stale descriptions. Do not rewrite sections that passed all checks.
-4. **All links must resolve** — every `[text](path)` must point to an existing file in the directory listing
+3. **Minimal changes only** — fix ONLY the specific issues you identified in Phase 1. Copy all other sections verbatim from the original file. Do not rephrase, reformat, or restructure anything that passed checks.
+4. **Use the SAME relative link style as the original** — if the original uses `../docs/foo.md`, new entries must also use `../docs/` prefix. The derived file is at `{{DERIVED_PATH}}` — all links are relative to its parent directory. Do NOT use absolute paths from the directory listing.
 5. **Do not remove sections** unless the content they describe was entirely deleted
 6. **Write the complete file** — output the full regenerated file, not a diff
 
