@@ -334,9 +334,11 @@ jobs:
                 fi
               done
 
-              # Get added and modified files from git diff
-              added_files=$(git diff --diff-filter=A --name-only HEAD -- 2>/dev/null || echo "")
-              modified_files=$(git diff --diff-filter=M --name-only HEAD -- 2>/dev/null || echo "")
+              # Get added and modified files
+              # Untracked files = newly added by sync (rsync creates them but doesn't git-add)
+              # Modified files = existing tracked files changed by sync
+              added_files=$(git ls-files --others --exclude-standard -- 2>/dev/null || echo "")
+              modified_files=$(git diff --name-only HEAD -- 2>/dev/null || echo "")
 
               # Build prompt from template
               prompt=$(cat "$PROMPT_TEMPLATE")

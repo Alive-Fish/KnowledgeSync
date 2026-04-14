@@ -34,29 +34,32 @@ You are checking whether a derived file needs updating after upstream content wa
 Read the derived file at `{{DERIVED_PATH}}`. Run ALL of these checks:
 
 #### Check 1 — Reference integrity
-Every `[text](path)` link must resolve to a file that exists. Check against the directory listing. Flag any broken links (targets renamed or deleted).
+Every `[text](path)` link must resolve to a file that exists. Resolve relative paths from the derived file's location. Check against the directory listing. Flag any broken links (targets renamed or deleted).
 
-#### Check 2 — Enumeration completeness (CRITICAL)
-Identify sections that **enumerate files from a directory** — for example:
-- A bullet list of all docs (`docs/*.md`) with descriptions
-- A table of expert domains with links to index files
-- A file inventory line listing all experts in a domain
+#### Check 2 — Enumeration completeness (CRITICAL — most common failure)
+Find every section in the derived file that lists multiple files from the SAME directory. These are enumeration sections. Examples of patterns to look for:
+- A bullet list of links like `- [Name](../docs/foo.md)`, `- [Name](../docs/bar.md)` — this enumerates `docs/`
+- A markdown table with file links in one column
+- A pipe-separated file inventory line like `file-a.md | file-b.md | file-c.md`
+- A domain routing table with links to `index.md` files in subdirectories
 
-For EACH such enumeration section:
-1. Determine which directory/directories it covers
-2. List ALL `.md` files in that directory from the directory listing
-3. Check if every file has a corresponding entry in the enumeration
-4. **Any newly ADDED file that belongs to an enumerated directory but is missing from the list is an INCOMPATIBILITY**
+**For EACH enumeration section you find:**
+1. Resolve the relative links to determine which directory is being enumerated
+2. From the directory listing, list ALL `.md` files in that directory (excluding README.md and index.md unless the section already includes them)
+3. Compare: every file in the directory should have a corresponding entry
+4. Also compare: every ADDED file (from "Files added this sync") whose path falls under that directory MUST appear
 
-This is the most common failure mode. When the derived file maintains a curated list and new files are added upstream, they MUST appear in the list.
+**If ANY added file belongs to a directory that has an enumeration section but is missing from that section → INCOMPATIBLE.**
+
+**Example:** If the derived file has a "Platform Comparison Docs" section listing 9 files from `docs/`, and a new `docs/workflows.md` was added in this sync but is NOT listed → INCOMPATIBLE.
 
 #### Check 3 — Description accuracy
-Check that counts, descriptions, and factual claims still match reality. Examples:
+Check that numeric counts and factual claims still match. Examples:
 - "27 experts" but directory now has 28
-- A domain description that no longer matches its index file's content
+- A domain description that contradicts the current index file content
 
 #### Check 4 — Structural coherence
-If newly added files introduce an entirely new CATEGORY or DOMAIN (not just new files within an existing domain), check whether the derived file's high-level structure needs updating.
+If newly added files introduce an entirely new CATEGORY or DOMAIN (not just new files within an existing domain), check whether the derived file's high-level structure needs a new section.
 
 ### Verdict
 
