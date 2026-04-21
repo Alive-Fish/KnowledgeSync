@@ -11,7 +11,7 @@ Bridges Slack App Directory distribution and Teams app packaging / Admin Center 
 3. **Slack `InstallationStore` → conversation reference storage.** Slack's `InstallationStore` persists tokens per workspace for API calls. Teams doesn't need per-workspace tokens, but you still need to store conversation references for proactive messaging. Replace `InstallationStore` with a conversation reference store keyed by `conversationId`. [learn.microsoft.com -- Proactive messages](https://learn.microsoft.com/en-us/microsoftteams/platform/bots/how-to/conversations/send-proactive-messages)
 4. **Slack org-level install → Teams Admin Center tenant-wide deployment.** Slack Enterprise Grid supports org-level app installation. In Teams, tenant-wide deployment is done via the Teams Admin Center by an IT admin: Manage Apps → Upload/Approve → Deploy to users/groups. No code changes needed — the admin controls distribution. [learn.microsoft.com -- Admin Center](https://learn.microsoft.com/en-us/microsoftteams/manage-apps)
 5. **Development install → Teams sideloading.** Slack development apps are installed via the app's manage page or OAuth URL. Teams development apps are sideloaded: upload the app package (ZIP with manifest + icons) directly into Teams. Sideloading must be enabled by the tenant admin. [learn.microsoft.com -- Sideloading](https://learn.microsoft.com/en-us/microsoftteams/platform/concepts/deploy-and-publish/apps-upload)
-6. **Microsoft 365 Agents Toolkit (ATK) simplifies packaging, provisioning, and deployment.** ATK (VS Code extension or CLI `atk`) automates: Azure resource provisioning, app package generation, sideloading, and publishing. It replaces the manual Azure Portal + zip file workflow. Use `atk package --env dev -i false` to generate the app package and `atk share --scope tenant -i false` to distribute. [learn.microsoft.com -- ATK](https://learn.microsoft.com/en-us/microsoftteams/platform/toolkit/teams-toolkit-fundamentals)
+6. **Teams Toolkit simplifies packaging, provisioning, and deployment.** Teams Toolkit (VS Code extension or CLI `teamsapp`) automates: Azure resource provisioning, app package generation, sideloading, and publishing. It replaces the manual Azure Portal + zip file workflow. Use `teamsapp package` to generate the app package and `teamsapp publish` to submit. [learn.microsoft.com -- Teams Toolkit](https://learn.microsoft.com/en-us/microsoftteams/platform/toolkit/teams-toolkit-fundamentals)
 7. **Multi-tenant Slack app → Azure AD multi-tenant app registration.** Slack multi-workspace apps use the App Directory + OAuth per workspace. Teams multi-tenant bots use a single Azure AD app registration with `signInAudience: "AzureADMultipleOrgs"`. Any tenant can install the bot without workspace-specific OAuth. [learn.microsoft.com -- Multi-tenant](https://learn.microsoft.com/en-us/azure/bot-service/bot-builder-authentication-basics)
 8. **Slack app manifest (`manifest.json`) → Teams app manifest (`manifest.json` in app package).** Both platforms use JSON manifests but with completely different schemas. Slack's manifest includes OAuth scopes, event subscriptions, slash commands. Teams manifest includes `bots`, `composeExtensions`, `staticTabs`, `webApplicationInfo`, `validDomains`. No automatic conversion exists. [learn.microsoft.com -- Manifest schema](https://learn.microsoft.com/en-us/microsoftteams/platform/resources/schema/manifest-schema)
 9. **Slack app icons (512x512 + workspace-specific) → Teams icons (color 192x192 + outline 32x32).** Teams requires exactly two icon files in the app package: a full-color icon (192x192 PNG) and an outline/monochrome icon (32x32 PNG with transparent background). The outline icon is used in the Teams activity bar. [learn.microsoft.com -- App icons](https://learn.microsoft.com/en-us/microsoftteams/platform/resources/schema/manifest-schema#icons)
@@ -115,14 +115,13 @@ app.start(3978);
 ```shell
 # Option 1: Sideload for development
 # Build the app package (manifest.json + icons in a ZIP)
-atk package --env dev -i false
+teamsapp package --env dev
 
 # Upload to Teams:
 # Teams → Apps → Manage your apps → Upload a custom app
-# Or use: atk install --file-path ./appPackage/build/appPackage.dev.zip -i false
 
 # Option 2: Submit to organization's app catalog
-atk share --scope tenant -i false
+teamsapp publish --env staging
 # IT admin approves in Teams Admin Center → Manage Apps
 
 # Option 3: Submit to public Teams App Store (Partner Center)
@@ -182,10 +181,10 @@ my-teams-bot.zip
 
 ## instructions
 
-Use this expert when adding cross-platform support in either direction for app distribution and packaging. It covers: Slack App Directory bridged to Teams App Store (Partner Center), OAuth install flow vs Azure Bot registration, InstallationStore vs conversation reference storage, org-level deployment via Teams Admin Center, sideloading for development, ATK for packaging, multi-tenant Azure AD registration, icon requirements, store review timelines, and reverse mapping from Teams manifest/Admin Center back to Slack app manifest and App Directory submission. Pair with `identity-oauth-bridge-ts.md` for the identity/OAuth model change, `../teams/runtime.manifest-ts.md` for Teams manifest creation, and `../teams/runtime.proactive-messaging-ts.md` for conversation reference storage patterns.
+Use this expert when adding cross-platform support in either direction for app distribution and packaging. It covers: Slack App Directory bridged to Teams App Store (Partner Center), OAuth install flow vs Azure Bot registration, InstallationStore vs conversation reference storage, org-level deployment via Teams Admin Center, sideloading for development, Teams Toolkit for packaging, multi-tenant Azure AD registration, icon requirements, store review timelines, and reverse mapping from Teams manifest/Admin Center back to Slack app manifest and App Directory submission. Pair with `identity-oauth-bridge-ts.md` for the identity/OAuth model change, `../teams/runtime.manifest-ts.md` for Teams manifest creation, and `../teams/runtime.proactive-messaging-ts.md` for conversation reference storage patterns.
 
 ## research
 
 Deep Research prompt:
 
-"Write a micro expert for bridging Slack App Directory distribution and Microsoft Teams app packaging / Admin Center publishing in either direction. Cover: App Directory vs Teams App Store (Partner Center), OAuth install flow vs Azure Bot registration, InstallationStore vs conversation reference storage, org-level install vs Teams Admin Center, sideloading, ATK packaging (atk package / atk share), multi-tenant Azure AD app registration, icon requirements, manifest schema differences, OAuth scope to RSC mapping, store review timeline, and reverse mapping from Teams manifest/publishing back to Slack app manifest and App Directory submission. Include code examples and a mapping table."
+"Write a micro expert for bridging Slack App Directory distribution and Microsoft Teams app packaging / Admin Center publishing in either direction. Cover: App Directory vs Teams App Store (Partner Center), OAuth install flow vs Azure Bot registration, InstallationStore vs conversation reference storage, org-level install vs Teams Admin Center, sideloading, Teams Toolkit packaging, multi-tenant Azure AD app registration, icon requirements, manifest schema differences, OAuth scope to RSC mapping, store review timeline, and reverse mapping from Teams manifest/publishing back to Slack app manifest and App Directory submission. Include code examples and a mapping table."

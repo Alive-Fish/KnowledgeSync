@@ -106,7 +106,7 @@ Covers: input validation, secrets management.
 
 ## Eval Harness
 
-The `evals/` directory (if present) contains an automated test harness that validates the expert system across three dimensions:
+The [`evals/`](../evals/) directory contains an automated test harness that validates the expert system across three dimensions:
 
 | Dimension | What it checks | LLM required? |
 |-----------|---------------|----------------|
@@ -120,7 +120,7 @@ npm run eval:patterns    # fast, no API key
 npm run eval             # all dimensions (needs OPENAI_API_KEY in .env)
 ```
 
-Current results: 294/294 patterns compile, 41/51 routing cases pass (all 7 domains covered), 9/9 completeness cases pass. The ~10 routing failures are LLM judge scoring edge cases where the deterministic router is correct but the judge scores conservatively on ambiguous or cross-domain queries.
+Current results: 294/294 patterns compile, 41/51 routing cases pass (all 7 domains covered), 9/9 completeness cases pass. The ~10 routing failures are LLM judge scoring edge cases where the deterministic router is correct but the judge scores conservatively on ambiguous or cross-domain queries. See [`evals/README.md`](../evals/README.md) for details.
 
 After adding or editing experts, run `npm run eval:patterns` to verify code examples still compile. For new domains or significant expert changes, add test cases to `evals/cases/` and run the full suite.
 

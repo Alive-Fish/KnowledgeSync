@@ -6,9 +6,9 @@ Teams app manifest (manifest.json) structure, schema, bots config, permissions, 
 
 ## rules
 
-1. Use schema version `1.25` with `"$schema": "https://developer.microsoft.com/json-schemas/teams/v1.25/MicrosoftTeams.schema.json"` and `"manifestVersion": "1.25"`. This is the current stable schema for Teams SDK v2 projects. [learn.microsoft.com -- Manifest schema](https://learn.microsoft.com/en-us/microsoftteams/platform/resources/schema/manifest-schema)
+1. Use schema version `1.20` with `"$schema": "https://developer.microsoft.com/json-schemas/teams/v1.20/MicrosoftTeams.schema.json"` and `"manifestVersion": "1.20"`. This is the current stable schema for Teams SDK v2 projects. [learn.microsoft.com -- Manifest schema](https://learn.microsoft.com/en-us/microsoftteams/platform/resources/schema/manifest-schema)
 2. Required top-level fields are: `$schema`, `version`, `manifestVersion`, `id`, `name` (with `short` max 30 chars and `full` max 100 chars), `description` (with `short` max 80 chars and `full` max 4000 chars), `developer` (with `name`, `websiteUrl`, `privacyUrl`, `termsOfUseUrl`), `icons` (`outline` and `color`), and `accentColor`. Omitting any causes validation failure on upload. [learn.microsoft.com -- Manifest schema](https://learn.microsoft.com/en-us/microsoftteams/platform/resources/schema/manifest-schema)
-3. The `bots` array defines bot registrations. Each entry requires `botId` (the Azure Bot ID, typically a placeholder like `${{BOT_ID}}`), `scopes` (array of `"personal"`, `"team"`, `"groupChat"`), and optional flags `isNotificationOnly`, `supportsCalling`, `supportsVideo`, `supportsFiles`. Scopes determine where the bot can receive activities. **v1.25 catch-22:** With manifest v1.25, `"team"` scope requires `supportsChannelFeatures: true` at runtime but the v1.25 schema rejects it. Workaround: use `"personal"` scope only in v1.25, or use devPreview/future schema that defines the property. [learn.microsoft.com -- Bots in manifest](https://learn.microsoft.com/en-us/microsoftteams/platform/resources/schema/manifest-schema#bots)
+3. The `bots` array defines bot registrations. Each entry requires `botId` (the Azure Bot ID, typically a placeholder like `${{BOT_ID}}`), `scopes` (array of `"personal"`, `"team"`, `"groupChat"`), and optional flags `isNotificationOnly`, `supportsCalling`, `supportsVideo`, `supportsFiles`. Scopes determine where the bot can receive activities. [learn.microsoft.com -- Bots in manifest](https://learn.microsoft.com/en-us/microsoftteams/platform/resources/schema/manifest-schema#bots)
 4. Add `composeExtensions` for message extensions. Each entry needs `botId`, `type` (`"query"` or `"action"`), and a `commands` array. Each command has `id`, `type`, `title`, and `parameters` for query commands or `fetchTask: true` for action commands. [learn.microsoft.com -- Compose extensions](https://learn.microsoft.com/en-us/microsoftteams/platform/resources/schema/manifest-schema#composeextensions)
 5. The `validDomains` array lists domains the bot is allowed to open in web views and task modules. Always include `"*.botframework.com"` and your bot's domain. Omitting a domain causes blank task modules. [learn.microsoft.com -- Valid domains](https://learn.microsoft.com/en-us/microsoftteams/platform/resources/schema/manifest-schema#validdomains)
 6. The `webApplicationInfo` section provides SSO configuration with `id` (the bot/app ID) and `resource` (the application ID URI, typically `"api://botid-${{BOT_ID}}"`). Required for OAuth/SSO flows. [learn.microsoft.com -- webApplicationInfo](https://learn.microsoft.com/en-us/microsoftteams/platform/resources/schema/manifest-schema#webapplicationinfo)
@@ -24,9 +24,9 @@ Teams app manifest (manifest.json) structure, schema, bots config, permissions, 
 ```typescript
 // appPackage/manifest.json
 const manifest = {
-  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.25/MicrosoftTeams.schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.20/MicrosoftTeams.schema.json",
   "version": "1.0.0",
-  "manifestVersion": "1.25",
+  "manifestVersion": "1.20",
   "id": "${{TEAMS_APP_ID}}",
   "name": {
     "short": "My Bot",
@@ -55,7 +55,7 @@ const manifest = {
   "bots": [
     {
       "botId": "${{BOT_ID}}",
-      "scopes": ["personal"],
+      "scopes": ["personal", "team", "groupChat"],
       "isNotificationOnly": false,
       "supportsCalling": false,
       "supportsVideo": false,
@@ -75,9 +75,9 @@ const manifest = {
 ```typescript
 // appPackage/manifest.json -- adding composeExtensions for a search command
 const manifestWithExtensions = {
-  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.25/MicrosoftTeams.schema.json",
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.20/MicrosoftTeams.schema.json",
   "version": "1.0.0",
-  "manifestVersion": "1.25",
+  "manifestVersion": "1.20",
   "id": "${{TEAMS_APP_ID}}",
   "name": {
     "short": "Search Bot",
@@ -102,7 +102,7 @@ const manifestWithExtensions = {
   "bots": [
     {
       "botId": "${{BOT_ID}}",
-      "scopes": ["personal"],
+      "scopes": ["personal", "team", "groupChat"],
       "isNotificationOnly": false
     }
   ],
@@ -202,4 +202,4 @@ Pair with `project.scaffold-files-ts.md` for the full project file structure and
 
 Deep Research prompt:
 
-"Write a micro expert on Microsoft Teams app manifest.json for SDK v2 bots (TypeScript). Cover the v1.25 schema, all required fields (id, name, description, developer, icons, accentColor, manifestVersion), bots section (botId, scopes, isNotificationOnly, supportsCalling, supportsVideo, supportsFiles), composeExtensions for message extensions (query and action types, commands, parameters, fetchTask), staticTabs, validDomains, webApplicationInfo for SSO, icon requirements (192x192 color PNG, 32x32 outline PNG with transparency), placeholder variable patterns (${{BOT_ID}}), zip packaging rules, and common validation errors. Include a complete manifest template and a manifest-with-extensions template."
+"Write a micro expert on Microsoft Teams app manifest.json for SDK v2 bots (TypeScript). Cover the v1.20 schema, all required fields (id, name, description, developer, icons, accentColor, manifestVersion), bots section (botId, scopes, isNotificationOnly, supportsCalling, supportsVideo, supportsFiles), composeExtensions for message extensions (query and action types, commands, parameters, fetchTask), staticTabs, validDomains, webApplicationInfo for SSO, icon requirements (192x192 color PNG, 32x32 outline PNG with transparency), placeholder variable patterns (${{BOT_ID}}), zip packaging rules, and common validation errors. Include a complete manifest template and a manifest-with-extensions template."
