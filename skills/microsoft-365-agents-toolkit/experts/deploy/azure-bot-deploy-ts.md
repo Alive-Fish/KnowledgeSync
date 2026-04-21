@@ -6,7 +6,7 @@ Step-by-step deployment of a Slack bot, Teams bot, or dual bot to Azure. Covers 
 
 ## rules
 
-1. **Install prerequisites before anything else.** You need: Node.js 20 LTS, Azure CLI (`az`), and optionally the ATK CLI (`npm i -g @microsoft/m365agentstoolkit-cli@beta`). Verify with `az --version`, `node --version`, and `atk --version`. [learn.microsoft.com/cli/azure/install-azure-cli](https://learn.microsoft.com/cli/azure/install-azure-cli)
+1. **Install prerequisites before anything else.** You need: Node.js 20 LTS, Azure CLI (`az`), and optionally the Agents Toolkit CLI (`npm install -g @microsoft/teamsapp-cli`). Verify with `az --version` and `node --version`. [learn.microsoft.com/cli/azure/install-azure-cli](https://learn.microsoft.com/cli/azure/install-azure-cli)
 2. **Authenticate and set the target subscription.** Run `az login` to open browser auth, then `az account set --subscription <subscription-id>`. All subsequent commands use this subscription. [learn.microsoft.com/cli/azure/authenticate-azure-cli](https://learn.microsoft.com/cli/azure/authenticate-azure-cli)
 3. **Create a resource group to contain all bot resources.** `az group create --name <rg-name> --location <region>`. Use a region close to your users (e.g., `eastus`, `westeurope`). All subsequent resources go in this group. [learn.microsoft.com/azure/azure-resource-manager/management/manage-resource-groups-cli](https://learn.microsoft.com/azure/azure-resource-manager/management/manage-resource-groups-cli)
 4. **Register an Entra ID App Registration.** This is the bot's identity — required for both Teams and Slack bots on Azure. `az ad app create --display-name <bot-name>` returns an `appId` (client ID). Then create a secret: `az ad app credential reset --id <appId>`. Save the `password` — it's the CLIENT_SECRET and is only shown once. [learn.microsoft.com/entra/identity-platform/quickstart-register-app](https://learn.microsoft.com/entra/identity-platform/quickstart-register-app)
@@ -19,7 +19,7 @@ Step-by-step deployment of a Slack bot, Teams bot, or dual bot to Azure. Covers 
 11. **Build and deploy.** Run `npm run build` locally, then zip deploy: `az webapp deploy --resource-group <rg> --name <app-name> --src-path <zip-path> --type zip`. For Functions: `func azure functionapp publish <app-name>`. [learn.microsoft.com/azure/app-service/deploy-zip](https://learn.microsoft.com/azure/app-service/deploy-zip)
 12. **Enable Always On for App Service.** `az webapp config set --resource-group <rg> --name <app-name> --always-on true`. Without this, the app goes idle after 20 minutes and the next request cold-starts. For Functions Premium, configure Always Ready instances instead. [learn.microsoft.com/azure/app-service/configure-common](https://learn.microsoft.com/azure/app-service/configure-common)
 13. **Verify the deployment.** Check the health endpoint: `curl https://<app-name>.azurewebsites.net/api/health`. Then send a test message in Teams or Slack. Check App Service logs: `az webapp log tail --resource-group <rg> --name <app-name>`. [learn.microsoft.com/azure/app-service/troubleshoot-diagnostic-logs](https://learn.microsoft.com/azure/app-service/troubleshoot-diagnostic-logs)
-14. **ATK fast path (Teams bots).** Instead of steps 3-12, run `atk provision --env dev --resource-group <rg> --region <region> -i false` (creates App Registration, Bot Service, App Service, and all config) then `atk deploy --env dev -i false` (builds and deploys). Two commands replace the entire manual process. Requires a `m365agents.yml` in your project. [learn.microsoft.com -- ATK CLI](https://learn.microsoft.com/en-us/microsoftteams/platform/toolkit/toolkit-cli)
+14. **Agents Toolkit fast path (Teams bots).** Instead of steps 3-12, run `teamsapp provision` (creates App Registration, Bot Service, App Service, and all config) then `teamsapp deploy` (builds and deploys). Two commands replace the entire manual process. Requires a `teamsapp.yml` in your project. [learn.microsoft.com/microsoftteams/platform/toolkit/teamsfx-cli](https://learn.microsoft.com/microsoftteams/platform/toolkit/teamsfx-cli)
 
 ## interview
 
@@ -44,8 +44,8 @@ multiSelect: false
 question: "How do you want to deploy?"
 header: "Method"
 options:
-  - label: "ATK CLI (Recommended)"
-    description: "atk provision + atk deploy — automates App Registration, Bot Service, App Service, and manifest sideloading in two commands."
+  - label: "Agents Toolkit CLI (Recommended)"
+    description: "teamsapp provision + teamsapp deploy — automates App Registration, Bot Service, App Service, and manifest sideloading in two commands."
   - label: "Manual az CLI"
     description: "Full control, step-by-step. Learn exactly what resources are created and how they connect."
   - label: "You Decide Everything"
@@ -58,7 +58,7 @@ multiSelect: false
 | Question | Default |
 |---|---|
 | Q1 | App Service |
-| Q2 | ATK CLI |
+| Q2 | Agents Toolkit CLI |
 
 ## patterns
 
@@ -139,30 +139,23 @@ curl https://mybot-app.azurewebsites.net/api/health
 az webapp log tail --resource-group rg-mybot --name mybot-app
 ```
 
-### ATK fast path (Teams bot)
+### Agents Toolkit fast path (Teams bot)
 
 ```bash
-# 1. Install ATK CLI
-npm i -g @microsoft/m365agentstoolkit-cli@beta
+# 1. Install Agents Toolkit CLI
+npm install -g @microsoft/teamsapp-cli
 
-# 2. Login to M365 and Azure
-atk auth login m365
-atk auth login azure
+# 2. Provision all Azure resources (App Registration, Bot Service, App Service)
+teamsapp provision --env dev
 
-# 3. Provision all Azure resources (App Registration, Bot Service, App Service)
-atk provision --env dev --resource-group rg-mybot --region eastus -i false
+# 3. Build and deploy
+teamsapp deploy --env dev
 
-# 4. Build and deploy
-atk deploy --env dev -i false
+# 4. Sideload to Teams for testing
+teamsapp preview --env dev
 
-# 5. Test locally with Agents Playground
-agentsplayground -e http://localhost:3978/api/messages -c msteams
-
-# Or open in Teams:
-# https://teams.microsoft.com/l/app/${{TEAMS_APP_ID}}?installAppPackage=true&webjoin=true&appTenantId=${{TENANT_ID}}&login_hint=${{USER_EMAIL}}
-
-# That's it — three commands from zero to running bot.
-# m365agents.yml in your project defines the resource topology.
+# That's it — three commands from zero to running bot in Teams.
+# teamsapp.yml in your project defines the resource topology.
 ```
 
 ### Slack bot on Azure App Service
@@ -246,7 +239,7 @@ az webapp config appsettings set \
 - https://learn.microsoft.com/azure/app-service/quickstart-nodejs
 - https://learn.microsoft.com/azure/app-service/deploy-zip
 - https://learn.microsoft.com/azure/app-service/configure-common
-- https://learn.microsoft.com/en-us/microsoftteams/platform/toolkit/toolkit-cli
+- https://learn.microsoft.com/microsoftteams/platform/toolkit/teamsfx-cli
 - https://learn.microsoft.com/azure/app-service/troubleshoot-diagnostic-logs
 
 ## instructions
@@ -259,4 +252,4 @@ Pair with: `../teams/project.scaffold-files-ts.md` (project structure before dep
 
 Deep Research prompt:
 
-"Write a micro expert on deploying a Slack Bolt.js or Microsoft Teams bot to Azure. Cover: Azure CLI installation, az login, resource group creation, Entra ID App Registration (client ID + secret), Azure Bot Service creation and Teams channel connection, App Service provisioning with Node.js 20 LTS, environment variable configuration via App Settings, zip deployment, Always On configuration, ATK CLI (atk provision + atk deploy) as a fast path, Agents Playground for local testing, Slack-on-Azure configuration (Event Subscriptions URL), dual bot deployment on shared Express, and common deployment verification steps. Provide 3-4 canonical bash script examples and 6-8 common pitfalls."
+"Write a micro expert on deploying a Slack Bolt.js or Microsoft Teams bot to Azure. Cover: Azure CLI installation, az login, resource group creation, Entra ID App Registration (client ID + secret), Azure Bot Service creation and Teams channel connection, App Service provisioning with Node.js 20 LTS, environment variable configuration via App Settings, zip deployment, Always On configuration, Agents Toolkit CLI (teamsapp provision + teamsapp deploy) as a fast path, Slack-on-Azure configuration (Event Subscriptions URL), dual bot deployment on shared Express, and common deployment verification steps. Provide 3-4 canonical bash script examples and 6-8 common pitfalls."

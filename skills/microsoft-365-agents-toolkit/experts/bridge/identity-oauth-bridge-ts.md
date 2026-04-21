@@ -53,9 +53,6 @@ PORT=3978
 | `SLACK_CLIENT_ID` | `CLIENT_ID` | Azure Bot App Registration ID (GUID) |
 | `SLACK_CLIENT_SECRET` | `CLIENT_SECRET` | Azure Bot App Registration secret |
 | *(not applicable)* | `TENANT_ID` | Azure AD tenant ID (new for Teams) |
-
-> **\u26a0\ufe0f CRITICAL:** `TENANT_ID` must always be set explicitly. If missing, the Teams SDK defaults to acquiring tokens from the shared `botframework.com` tenant instead of your home tenant, causing **401 Unauthorized** from Bot Connector. ATK's `aadApp/create` may not write this to `.localConfigs` — verify and add it manually.
-
 | `PORT` (default 3000) | `PORT` (default 3978) | Different conventional defaults |
 
 **Identity concept mapping table:**

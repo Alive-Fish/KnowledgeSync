@@ -120,6 +120,50 @@ Read:
 - `a2a.orchestrator-patterns-ts.md` (only if orchestrating multiple agents)
 Depends on: `runtime.app-init-ts.md` (A2APlugin added to App plugins). A2A client also depends on `ai.chatprompt-basics-ts.md` (A2AClientPlugin is a ChatPrompt plugin).
 
+### Workflow: SharePoint Lists as State
+When: SharePoint Lists integration, list CRUD, workflow state persistence, OData queries on lists, Graph webhooks for list changes
+Read:
+- `workflow.sharepoint-lists-ts.md`
+- `workflow.message-native-records-ts.md` (for rendering list records as cards)
+Depends on: `graph.usergraph-appgraph-ts.md` (Graph API auth), `auth.oauth-sso-ts.md` (app-only token setup)
+
+### Workflow: Message-Native Records
+When: card-as-record pattern, structured records in threads, Action.Execute card refresh, in-place card updates, updatable workflow cards
+Read:
+- `workflow.message-native-records-ts.md`
+- `ui.adaptive-cards-ts.md` (card construction patterns)
+Depends on: `workflow.sharepoint-lists-ts.md` (backing store), `runtime.routing-handlers-ts.md` (card.action handler)
+
+### Workflow: Triggers at Compose Surface
+When: workflow initiation, bot commands, message extension triggers, compose box, scheduled proactive workflows, workflow discoverability
+Read:
+- `workflow.triggers-compose-ts.md`
+- `ui.message-extensions-ts.md` (message extension details)
+- `runtime.proactive-messaging-ts.md` (scheduled trigger infrastructure)
+Depends on: `runtime.manifest-ts.md` (command lists and compose extension declarations)
+
+### Workflow: State-Driven Events
+When: presence triggers, Shifts events, call queue, Graph change notifications, break management, operational triggers, webhook subscriptions
+Read:
+- `workflow.state-driven-events-ts.md`
+- `workflow.triggers-compose-ts.md` (for the full trigger surface)
+Depends on: `graph.usergraph-appgraph-ts.md` (Graph API), `runtime.proactive-messaging-ts.md` (proactive messaging from webhooks)
+
+### Workflow: In-Channel Approvals
+When: approval workflow, approve/reject, approval routing, sequential approval, parallel approval, escalation, approval state machine
+Read:
+- `workflow.approvals-inline-ts.md`
+- `workflow.message-native-records-ts.md` (card-as-record pattern)
+Depends on: `workflow.sharepoint-lists-ts.md` (approval record persistence), `graph.usergraph-appgraph-ts.md` (manager lookup for escalation)
+
+### AI: Conversational Query
+When: natural language query, NL retrieval, "who is on break", "show PTO for March", querying workflow state with AI, function calling for data queries
+Read:
+- `ai.conversational-query-ts.md`
+- `ai.function-calling-design-ts.md` (function schema design)
+- `ai.function-calling-implementation-ts.md` (execution patterns)
+Depends on: `workflow.sharepoint-lists-ts.md` (underlying data), `workflow.message-native-records-ts.md` (rendering results as cards)
+
 ### Compatibility: BotBuilder Interop
 When: mixing BotBuilder SDK with Teams AI, legacy bot code, adapter patterns
 Read:
@@ -128,7 +172,7 @@ Read:
 - `runtime.routing-handlers-ts.md` (for mapping TeamsActivityHandler to SDK v2 routes)
 
 ### Dev: Debug & Test
-When: debugging, testing, ATK, Agents Toolkit, local tunnel, dev tools, unit tests
+When: debugging, testing, Teams Toolkit, local tunnel, dev tools, unit tests
 Read:
 - `dev.debug-test-ts.md`
 - `project.scaffold-files-ts.md` (for npm scripts and build verification)
@@ -152,16 +196,33 @@ Read:
 - `teams-dotnet.md`
 Note: C# has SDK support for Teams only (Tier 3). For the Slack side, route to `../bridge/rest-only-integration-ts.md`.
 
-### Toolkit: ATK CLI, Environments, Playground, Publishing
-When: `m365agents.yml`, `atk` CLI, `atk provision`, `atk deploy`, `atk share`, `atk new`, `atk auth`, `atk doctor`, lifecycle hooks, CI/CD pipeline, built-in actions, env files, environment variables, `${{VAR}}`, `SECRET_` prefix, multi-environment, Agents Playground, `agentsplayground`, local testing, publish to org, Teams Store, Partner Center
+### Toolkit: Lifecycle & CLI
+When: `m365agents.yml`, `teamsapp` CLI, `teamsapp provision`, `teamsapp deploy`, `teamsapp publish`, `teamsapp new`, lifecycle hooks, CI/CD pipeline, built-in actions, `uses:`, `runs:`, `arm/deploy`, `azureAppService/deploy`, `teamsApp/create`, `writeToEnvironmentFile`
 Read:
-- Parent skill references at [../../references/](../../references/) — covers ATK CLI commands, environment config, local debugging, templates, and publishing
-- `runtime.manifest-ts.md` (for manifest.json v1.25 schema and packaging)
-Note: ATK toolkit details are maintained in the parent microsoft-365-agents-toolkit skill to avoid duplication.
+- `toolkit.lifecycle-cli.md`
+Depends on: `project.scaffold-files-ts.md` (project must exist before lifecycle commands apply)
+
+### Toolkit: Environments
+When: env files, environment variables, `${{VAR}}`, `SECRET_` prefix, multi-environment, staging, production env, `.env.dev`, `.env.staging`, `.env.*.user`, `environmentFolderPath`, `TEAMS_APP_ID`, `BOT_ID`, cross-platform env vars, Slack + Teams env coexistence
+Read:
+- `toolkit.environments.md`
+Depends on: `toolkit.lifecycle-cli.md` (environments are consumed by lifecycle hooks)
+
+### Toolkit: Agents Playground
+When: Agents Playground, local testing, `teamsapp preview`, test harness, mock activity, playground config, `.m365agentsplayground.yml`, browser-based testing
+Read:
+- `toolkit.playground-ts.md`
+- `dev.debug-test-ts.md` (broader debug patterns)
+
+### Toolkit: Publishing
+When: publish to org, Teams Store, Partner Center, admin approval, `teamsapp publish`, `teamsapp validate`, `teamsapp package`, `teamsapp update`, app validation, sideload to org, org catalog, version bump
+Read:
+- `toolkit.publish.md`
+- `runtime.manifest-ts.md` (manifest must be valid before publishing)
 
 ## cross-platform bridging
 
-If the developer wants to **add Slack support** to an existing Teams bot, route to `../bridge/index.md` for cross-platform bridging experts. The bridge domain covers Teams↔Slack feature mapping, UI conversion, identity bridging, and infrastructure migration. For ATK toolkit patterns (environments, lifecycle, playground), see the parent skill's [../../references/](../../references/) folder.
+If the developer wants to **add Slack support** to an existing Teams bot, route to `../bridge/index.md` for cross-platform bridging experts. The bridge domain covers Teams↔Slack feature mapping, UI conversion, identity bridging, and infrastructure migration. The Toolkit experts (`toolkit.environments.md`, `toolkit.lifecycle-cli.md`) also cover dual-platform patterns — cross-platform env var layout and projects that skip `m365agents.yml`.
 
 ## combining rule
 
@@ -169,6 +230,7 @@ If a request spans multiple clusters (e.g., "add a function-calling tool that re
 
 ## file inventory
 
-`a2a.client-basics-ts.md` | `a2a.orchestrator-patterns-ts.md` | `a2a.server-basics-ts.md` | `ai.chatprompt-basics-ts.md` | `ai.citations-feedback-ts.md` | `ai.function-calling-design-ts.md` | `ai.function-calling-implementation-ts.md` | `ai.memory-localmemory-ts.md` | `ai.model-setup-ts.md` | `ai.rag-retrieval-ts.md` | `ai.rag-vectorstores-ts.md` | `ai.streaming-ts.md` | `auth.oauth-sso-ts.md` | `compat.botbuilder-interop-ts.md` | `dev.debug-test-ts.md` | `graph.usergraph-appgraph-ts.md` | `mcp.client-basics-ts.md` | `mcp.expose-chatprompt-tools-ts.md` | `mcp.security-ts.md` | `mcp.server-basics-ts.md` | `project.scaffold-files-ts.md` | `runtime.app-init-ts.md` | `runtime.manifest-ts.md` | `runtime.proactive-messaging-ts.md` | `runtime.routing-handlers-ts.md` | `state.storage-patterns-ts.md` | `teams-dotnet.md` | `teams-python.md` | `ui.adaptive-cards-ts.md` | `ui.dialogs-task-modules-ts.md` | `ui.message-extensions-ts.md`
+`a2a.client-basics-ts.md` | `a2a.orchestrator-patterns-ts.md` | `a2a.server-basics-ts.md` | `ai.chatprompt-basics-ts.md` | `ai.citations-feedback-ts.md` | `ai.conversational-query-ts.md` | `ai.function-calling-design-ts.md` | `ai.function-calling-implementation-ts.md` | `ai.memory-localmemory-ts.md` | `ai.model-setup-ts.md` | `ai.rag-retrieval-ts.md` | `ai.rag-vectorstores-ts.md` | `ai.streaming-ts.md` | `auth.oauth-sso-ts.md` | `compat.botbuilder-interop-ts.md` | `dev.debug-test-ts.md` | `graph.usergraph-appgraph-ts.md` | `mcp.client-basics-ts.md` | `mcp.expose-chatprompt-tools-ts.md` | `mcp.security-ts.md` | `mcp.server-basics-ts.md` | `project.scaffold-files-ts.md` | `runtime.app-init-ts.md` | `runtime.manifest-ts.md` | `runtime.proactive-messaging-ts.md` | `runtime.routing-handlers-ts.md` | `state.storage-patterns-ts.md` | `teams-dotnet.md` | `teams-python.md` | `toolkit.environments.md` | `toolkit.lifecycle-cli.md` | `toolkit.playground-ts.md` | `toolkit.publish.md` | `ui.adaptive-cards-ts.md` | `ui.dialogs-task-modules-ts.md` | `ui.message-extensions-ts.md` | `workflow.approvals-inline-ts.md` | `workflow.message-native-records-ts.md` | `workflow.sharepoint-lists-ts.md` | `workflow.state-driven-events-ts.md` | `workflow.triggers-compose-ts.md`
 
-<!-- ATK toolkit experts (lifecycle-cli, environments, playground, publish) moved to parent skill references/ -->
+<!-- Updated 2026-03-01: Added 4 Agents Toolkit experts (lifecycle-cli, environments, playground, publish) and 5 Slack CLI experts to slack/ domain -->
+<!-- Updated 2026-03-05: Added 6 workflow experts (sharepoint-lists, message-native-records, triggers-compose, state-driven-events, approvals-inline, conversational-query) to support message-native workflow vision -->

@@ -165,3 +165,4 @@ Reference guides for side-by-side platform comparison:
 - [Infrastructure](../docs/infrastructure.md)
 - [Advanced Features](../docs/advanced-features.md)
 - [Feature Gaps](../docs/feature-gaps.md)
+- [Workflow Scenarios](../docs/workflows.md) — Message-native workflow patterns (triggers, state, logic, AI, visibility) for Teams bots
